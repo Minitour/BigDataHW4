@@ -5,21 +5,19 @@ const express = require('express')
 const app = express()
 app.use(express.json())
 const port = 3000
-
 const WINDOW_SIZE = 3600000 // 1 hour in millisconds
+
+ io.listen(port + 1);
+ console.log('Stream Avaiable on port '  + (port + 1))
 
 /**
  * This is a js object which contains the current subscribed symbols and their expiration date.
  */
-var symbol_queue = {}
+var queue = {}
 
-
- io.listen(port + 1);
-
-// create socket object
-
-var arr = []
-
+/**
+ * Primary background task
+ */
 const thread = spawn(function(input, done) {
 
     const url = 'https://ws-api.iextrading.com/1.0/tops'
@@ -34,7 +32,7 @@ const thread = spawn(function(input, done) {
      })
     
      socket.on('connect', () => {
-         console.log("Connection created")
+         console.log("Sucessfully Connected to IEX")
          socket.emit('subscribe','firehose')
      })
 });
@@ -42,15 +40,72 @@ const thread = spawn(function(input, done) {
 thread
 .send({})
 .on('message', (response)=> {
-    // TODO: manipulate the response and boradcast it
-    io.sockets.emit('message', response);
+    // apply transformations if needed
+    console.log(response.symbol)
+
+    if (response == undefined) {
+        return;
+    }
+
+    if (!('symbol' in response)) {
+        return;
+    }
+
+    updateQueueIfNeededFor(response.symbol);
+
+    // if stock symbo is in queue then consume it
+    if (existsInQueue(response.symbol)){
+        consume(response);
+    }
 })
+
+/**
+ * Check if symbol is in our queue (sub box)
+ * @param {String} symbol 
+ */
+function existsInQueue(symbol) {
+    return symbol.toLowerCase() in queue;
+}
+
+/**
+ * check if the symbol is in the queue and if it has expired or not
+ * @param {String} symbol 
+ */
+function updateQueueIfNeededFor(symbol) {
+    var timestamp = queue[symbol];
+
+    if (timestamp != undefined) {
+        if (timestamp < new Date().getTime()) {
+            // timestamp expired
+            delete queue[symbol];
+        }
+    }
+}
+
+/**
+ * an object which contains the data to send down the stream.
+ * @param {Object} data 
+ */
+function consume(data) {
+    io.sockets.emit('message', data);
+}
 
 app.post('/api/subscribe',(req,res)=>{
     // subscribe
+    var symbol = req.body.symbol;
 
+    if (symbol == undefined) {
+        res.send({code : 400 })
+        return
+    }
+
+    symbol = symbol.toLowerCase();
+
+    // add symbol to queue with current time + window size aka expiration date.
+    queue[symbol] = new Date().getTime() + WINDOW_SIZE;
+    
     // response success
-    res.send({ code : 200, result: arr })
+    res.send({ code : 200})
 })
 
 app.listen(port);
