@@ -12,5 +12,4 @@ socket.on('message', (data)=> {
 
  socket.on('connect', () => {
      console.log("Connection created")
-     socket.emit('subscribe','firehose')
  })
