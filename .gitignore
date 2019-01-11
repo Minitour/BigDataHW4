@@ -2,3 +2,5 @@
 \.DS_Store
 
 iex_example/node_modules/
+
+modules/iex_service/node_modules/
