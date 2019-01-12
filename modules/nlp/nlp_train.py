@@ -6,15 +6,15 @@ import pickle
 
 from modules.nlp.nlp_vectorizer import get_features_train, vectorizer
 
-# fetching tweets from files
+# fetching traindata from files
 data = []
 data_labels = []
-with open("tweets/pos_tweets.txt") as f:
+with open("traindata/pos_tweets.txt") as f:
     for i in f:
         data.append(i)
         data_labels.append('pos')
 print(data)
-with open("tweets/neg_tweets.txt") as f:
+with open("traindata/neg_tweets.txt") as f:
     for i in f:
         data.append(i)
         data_labels.append('neg')

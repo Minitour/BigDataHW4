@@ -17,13 +17,3 @@ def predict(text):
     print(features)
 
     return loaded_model.predict(features)
-
-
-def test():
-    tweet = "GitHub finally has unlimited free repositories! Well done Microsoft!"
-    pred = predict(tweet)
-    print(pred)
-
-
-if __name__ == '__main__':
-    test()
