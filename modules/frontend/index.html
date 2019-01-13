@@ -1,0 +1,99 @@
+<html>
+
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+    <script src='https://code.jquery.com/jquery-2.1.4.js'></script>
+
+    <canvas id="line-chart" width="1000" height="600"></canvas>
+
+    <script>
+        
+        /*
+            This function will get from the posted request the json with the stock data
+            after getting the data the function will update the chart according to the new values
+        */
+        function getStocks() {
+            var o = $.getJSON("fake_stocks.json", function(obj) {
+                // console.log(obj);
+                var stocks = [];
+                
+                // iterate over the stock prices and construct the object to append the chart dataset
+                for (var d in obj.stocks) {
+                    var prices = [];
+
+                    // iterate over the prices and get the values
+                    for (var price in obj.stocks[d]['stockPrices']) {
+                        prices.push(obj.stocks[d]['stockPrices'][price]['value']);
+                    }
+
+                    // construct the object to append
+                    var s = {
+                        data: prices,
+                        label: obj.stocks[d]['companyName'],
+                        borderColor: generateColor(),
+                        fill: false                        
+                    };
+                    // console.log(s);
+                    stocks.push(s);
+                }
+
+                var labels = getTimesForLabels();
+                
+                // updating the chart
+                chart.data.datasets = stocks;
+                chart.data.labels = labels;
+                chart.update();
+
+            });
+        }
+        
+        // this function will generate colors according to the number of stocks
+        function generateColor() {
+            var letters = '0123456789ABCDEF';
+            var color = '#';
+            for (var i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+
+            return color;
+        }
+
+        function getTimesForLabels() {
+
+            var d = new Date();
+            var currentMinute = d.getMinutes();
+            
+            var times = [];
+            
+            // for every min we put label
+            for (var i=60; i>0; i--) {
+                if (currentMinute >= i) {
+                    times.push(currentMinute - i);
+                } else {
+                    times.push(60-(i-currentMinute));
+                }
+                
+            }
+            return times;
+        }
+
+        // setting new chart with min initialization -> updating by posts
+        var chart = new Chart(document.getElementById("line-chart"), {
+            type: 'line',
+            data: {datasets: null, labels: null},
+            options: {
+                title: {
+                    display: true,
+                    text: 'Popular Stocks On Tweeter'
+                }
+            }
+        });
+
+        // setting the interval for 1 sec to update the stocks from the posted request
+        setInterval(function(){getStocks()}, 1000);
+
+    </script>
+
+</body>
+
+</html>
