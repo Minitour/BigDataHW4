@@ -4,7 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 import pickle
 
-from modules.nlp.nlp_vectorizer import get_features_train, vectorizer
+from modules.nlp.vectorizer import get_features_train, vectorizer
 
 # fetching traindata from files
 data = []

@@ -69,3 +69,5 @@ def get_symbol(tweet):
 
     if maxc is not None:
         return name_symbol_map[maxc], maxi
+
+    return None, None

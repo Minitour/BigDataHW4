@@ -3,9 +3,10 @@ from pyspark.streaming import StreamingContext
 from pyspark.sql import Row, SQLContext
 import sys
 import requests
+import grequests
+
+from modules.nlp.predict import predict
 from modules.spark_service.symbol_lookup import get_symbol
-
-
 
 # create spark configuration
 conf = SparkConf()
@@ -69,6 +70,22 @@ def process_rdd(time, rdd):
         print("Error: %s" % e)
 
 
+def process_tweet(tweet):
+    symbol, score = get_symbol(tweet['text'])
+
+    is_positive = predict(tweet['text'])
+
+    return {'tweet_id': tweet['id'],
+            'symbol_detected': symbol,
+            'is_positive': is_positive,
+            'follower_count': tweet['followers']
+            }
+
+def proc_tweet_rdd(time,rdd):
+    # subscribe to topic
+    return
+
+
 '''
 # split each tweet into words
 words = twitter_service_stream.flatMap(lambda line: line.split(" "))
@@ -81,8 +98,15 @@ tags_totals = hashtags.updateStateByKey(aggregate_tags_count)
 tags_totals.foreachRDD(process_rdd)
 '''
 
+"""
+twitter_service_stream\
+    .flatMap(lambda line: line.split(" "))\
+    .filter(lambda w: '#' in w)\
+    .map(lambda x: (x, 1))\
+    .updateStateByKey(aggregate_tags_count)\
+    .foreachRDD(process_rdd)
 
-
+"""
 
 # start the streaming computation
 ssc.start()

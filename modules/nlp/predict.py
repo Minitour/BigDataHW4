@@ -1,7 +1,7 @@
 import pickle
 from sklearn.externals import joblib
 
-from modules.nlp.nlp_vectorizer import get_features, vectorizer
+from modules.nlp.vectorizer import get_features, vectorizer
 
 filename = 'model.dat'
 
@@ -14,6 +14,4 @@ vectorizer._validate_vocabulary()
 
 def predict(text):
     features = get_features([text]).toarray()
-    print(features)
-
-    return loaded_model.predict(features)
+    return loaded_model.predict(features)[0] == 'pos'
