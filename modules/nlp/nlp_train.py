@@ -1,54 +1,32 @@
-import re
-import nltk
-from sklearn.feature_extraction.text import CountVectorizer
-from nltk.stem.porter import PorterStemmer
 from sklearn import model_selection
-from sklearn.metrics import classification_report
+from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
 import pickle
 
-stemmer = PorterStemmer()
+from modules.nlp.nlp_vectorizer import get_features_train, vectorizer
 
-# returning the stem to clean the text from lower cases -> we will send it to the CountVectorizer
-def stem_tokens(tokens, stemmer):
-    stemmed = [stemmer.stem(item) for item in tokens]
-    return stemmed
-
-
-# function to remove non-letters and stems
-def tokenize(text):
-    text = re.sub("[^a-zA-Z]", " ", text)
-    tokens = nltk.word_tokenize(text)
-    stems = stem_tokens(tokens, stemmer)
-    return(stems)
-
-
-# fetching tweets from files
+# fetching traindata from files
 data = []
 data_labels = []
-with open(".tweets/pos_tweets.txt") as f:
+with open("traindata/pos_tweets.txt") as f:
     for i in f:
         data.append(i)
         data_labels.append('pos')
 print(data)
-with open(".tweets/neg_tweets.txt") as f:
+with open("traindata/neg_tweets.txt") as f:
     for i in f:
         data.append(i)
         data_labels.append('neg')
 
 
-vectorizer = CountVectorizer(
-    analyzer = 'word',
-    tokenizer = tokenize,
-    lowercase = True,
-    stop_words = 'english',
-    max_features = 85
-)
-
 
 # transforming the data into features vector and to array
-features = vectorizer.fit_transform(data)
-features_nd = features.toarray()
+features_nd = get_features_train(data).toarray()
+binary_file = open('_voc',mode='wb')
+pickle.dump(vectorizer.vocabulary_, binary_file)
+binary_file.close()
+
 
 X_train, X_test, y_train, y_test  = model_selection.train_test_split(
     features_nd[0:len(data)],
@@ -73,5 +51,4 @@ from sklearn.metrics import accuracy_score
 print(accuracy_score(y_test, y_pred))
 
 # finally we save the trained model into disk
-filename = 'sentimental_score_nlp.sav'
-pickle.dump(log_model, open(filename, 'wb'))
+joblib.dump(log_model, 'model.dat')
