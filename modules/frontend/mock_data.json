@@ -1,0 +1,28 @@
+{
+  "stocks": [
+    {
+      "stockPrices": [
+        {"value": 100, "timestamp" : 1547400798},
+        {"value": 200, "timestamp" : 1547400798},
+        {"value": 300, "timestamp" : 1547400798},
+        {"value": 400, "timestamp" : 1547400798}
+      ],
+      "companyName": "Microsoft",
+      "symbol" : "MSFT"
+    }
+  ],
+  "tweet" : [
+    {
+      "tweet_id" : "234234234234434",
+      "positive" : false
+    },
+    {
+      "tweet_id" : "312312412321331",
+      "positive" : true
+    },
+    {
+      "tweet_id" : "234234234235555",
+      "positive" : false
+    }
+  ]
+}
