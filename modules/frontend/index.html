@@ -3,11 +3,11 @@
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
     <script src='https://code.jquery.com/jquery-2.1.4.js'></script>
-    
+
     <canvas id="line-chart" width="1000" height="600"></canvas>
 
     <script>
-        
+
         // setting the current time stamp to the init of this script
         var currentTimestamp = new Date().getTime();
 
@@ -19,47 +19,63 @@
             after getting the data the function will update the chart according to the new values
         */
         function getStocks() {
-            var o = $.getJSON("mock_data.json", function(obj) {
+            var o = $.getJSON("fake_stocks.json", function (obj) {
                 // console.log(obj);
                 var stocks = [];
                 var colors = [];
                 var numberOfColors = obj.stocks.length;
-                
+
                 //var startFrom = getFirstIndex(obj.stocks);
 
-                for (var i=0; i< numberOfColors; i++) {
+                for (var i = 0; i < numberOfColors; i++) {
                     colors.push(generateColor());
                 }
 
                 // iterate over the stock prices and construct the object to append the chart dataset
                 for (var d in obj.stocks) {
                     var prices = [];
+                    var isInGeneralStocks = "false";
                     
-                    // iterate over the prices and get the values if the time stamp is grater than now
-                    for (var price in obj.stocks[d]['stockPrices']) {
-                        if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp)
-                            prices.push(obj.stocks[d]['stockPrices'][price]['value']);
+                    // check if the stock is already in the general stock array -> if so -> pushing the new timestamped values into it
+                    for (var stock in general_stocks) {
+                        
+                        if (general_stocks[stock]['symbol'] == obj.stocks[d]['symbol']) {
+                            general_stocks[stock]['stockPrices'] = pushIntoArray(general_stocks[stock]['stockPrices'], obj.stocks[d]['stockPrices'])
+                            isInGeneralStocks = "true";
+                            console.log("pushed new items into stock" + general_stocks[stock]['symbol']);
+                        }
+                    }
+                    
+                    // iterate over the prices and get the values if the time stamp is grater than now | only if we havent found the stock in the general array
+                    if (isInGeneralStocks == "false") {
+                        for (var price in obj.stocks[d]['stockPrices']) {
+                            if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
+                                prices.push(obj.stocks[d]['stockPrices'][price]['value']);
+                            }
+                        }
                     }
 
-                    //construct the object to append if we have some new prices
-                    if (prices.length > 0){
+
+                    //construct the object to append if we have some new prices -> means new stock
+                    if (prices.length > 0) {
+                        
                         var s = {
                             data: prices,
                             label: obj.stocks[d]['symbol'],
                             borderColor: colors[d],
-                            fill: false                        
+                            fill: false
                         };
                         // console.log(s);
 
                         // pushing the new data into the general stock array
                         general_stocks.push(s);
-                        console.log("pushed");
+                        console.log("pushed new stock");
                     }
 
                 }
 
                 var labels = getTimesForLabels();
-                
+
                 // updating the chart
                 chart.data.datasets = general_stocks;
                 chart.data.labels = labels;
@@ -70,7 +86,17 @@
 
             });
         }
-        
+
+        function pushIntoArray(arrayToReceive, arrayToAppend) {
+            for (var a in arrayToAppend) {
+                if (a['timestamp'] > currentTimestamp)
+                    arrayToReceive.push(a);
+            }
+
+            return arrayToReceive;
+        }
+
+
         // this function will generate colors according to the number of stocks
         function generateColor() {
             var letters = '0123456789ABCDEF';
@@ -89,17 +115,17 @@
 
             var d = new Date();
             var currentMinute = d.getMinutes();
-            
+
             var times = [];
-            
+
             // for every min we put label
-            for (var i=60; i>0; i--) {
+            for (var i = 60; i > 0; i--) {
                 if (currentMinute >= i) {
                     times.push(currentMinute - i);
                 } else {
-                    times.push(60-(i-currentMinute));
+                    times.push(60 - (i - currentMinute));
                 }
-                
+
             }
             return times;
         }
@@ -107,7 +133,7 @@
         // setting new chart with min initialization -> updating by posts
         var chart = new Chart(document.getElementById("line-chart"), {
             type: 'line',
-            data: {datasets: null, labels: null},
+            data: { datasets: null, labels: null },
             options: {
                 title: {
                     display: true,
@@ -117,7 +143,7 @@
         });
 
         // setting the interval for 1 sec to update the new stocks and prices from the posted request
-        setInterval(function(){getStocks()}, 1000);
+        setInterval(function () { getStocks() }, 1000);
 
     </script>
 
