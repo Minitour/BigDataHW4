@@ -3,46 +3,70 @@
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
     <script src='https://code.jquery.com/jquery-2.1.4.js'></script>
-
+    
     <canvas id="line-chart" width="1000" height="600"></canvas>
 
     <script>
         
+        // setting the current time stamp to the init of this script
+        var currentTimestamp = new Date().getTime();
+
+        // init general stock array to keep the data and not refresh every time
+        var general_stocks = [];
+
         /*
             This function will get from the posted request the json with the stock data
             after getting the data the function will update the chart according to the new values
         */
         function getStocks() {
-            var o = $.getJSON("fake_stocks.json", function(obj) {
+            var o = $.getJSON("mock_data.json", function(obj) {
                 // console.log(obj);
                 var stocks = [];
+                var colors = [];
+                var numberOfColors = obj.stocks.length;
                 
+                //var startFrom = getFirstIndex(obj.stocks);
+
+                for (var i=0; i< numberOfColors; i++) {
+                    colors.push(generateColor());
+                }
+
                 // iterate over the stock prices and construct the object to append the chart dataset
                 for (var d in obj.stocks) {
                     var prices = [];
-
-                    // iterate over the prices and get the values
+                    
+                    // iterate over the prices and get the values if the time stamp is grater than now
                     for (var price in obj.stocks[d]['stockPrices']) {
-                        prices.push(obj.stocks[d]['stockPrices'][price]['value']);
+                        if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp)
+                            prices.push(obj.stocks[d]['stockPrices'][price]['value']);
                     }
 
-                    // construct the object to append
-                    var s = {
-                        data: prices,
-                        label: obj.stocks[d]['companyName'],
-                        borderColor: generateColor(),
-                        fill: false                        
-                    };
-                    // console.log(s);
-                    stocks.push(s);
+                    //construct the object to append if we have some new prices
+                    if (prices.length > 0){
+                        var s = {
+                            data: prices,
+                            label: obj.stocks[d]['symbol'],
+                            borderColor: colors[d],
+                            fill: false                        
+                        };
+                        // console.log(s);
+
+                        // pushing the new data into the general stock array
+                        general_stocks.push(s);
+                        console.log("pushed");
+                    }
+
                 }
 
                 var labels = getTimesForLabels();
                 
                 // updating the chart
-                chart.data.datasets = stocks;
+                chart.data.datasets = general_stocks;
                 chart.data.labels = labels;
                 chart.update();
+
+                currentTimestamp = new Date().getTime();
+                console.log(currentTimestamp);
 
             });
         }
@@ -58,6 +82,9 @@
             return color;
         }
 
+        /*
+            This function will render the time labels in the bottom of the graph
+        */
         function getTimesForLabels() {
 
             var d = new Date();
@@ -89,7 +116,7 @@
             }
         });
 
-        // setting the interval for 1 sec to update the stocks from the posted request
+        // setting the interval for 1 sec to update the new stocks and prices from the posted request
         setInterval(function(){getStocks()}, 1000);
 
     </script>
