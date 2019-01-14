@@ -1,13 +1,13 @@
-from pyspark import SparkConf, SparkContext
-from pyspark.streaming import StreamingContext
-from pyspark.sql import Row, SQLContext
-import sys
-import requests
-import grequests
 import json
+from datetime import datetime
+
+import grequests
+from pyspark import SparkConf, SparkContext
+from pyspark.sql import Row, SQLContext
+from pyspark.streaming import StreamingContext
 
 from modules.nlp.predict import predict
-from modules.spark_service.symbol_lookup import get_symbols
+from modules.spark.symbol_lookup import get_symbols, symbol_name_map
 
 # create spark configuration
 conf = SparkConf()
@@ -63,54 +63,36 @@ def notify_server(tweets):
     grequests.request("POST", flask_server + '/updateTweets', data=payload)
 
 
+def notify_server_stocks(stocks_df):
+    # select symbol,askPrice,lastSaleTime,timestamp from stocks
+
+    symbols = [str(t.symbol) for t in stocks_df.select("symbol").collect()]
+    askPrices = [str(t.askPrice) for t in stocks_df.select("askPrice").collect()]
+    lastSaleTimes = [str(t.lastSaleTime) for t in stocks_df.select("lastSaleTime").collect()]
+    timestamps = [int(t.timestamp) for t in stocks_df.select("timestamp").collect()]
+
+    comps = {}
+
+    res = []
+
+    for symbol, askPrice, lastSaleTime, ts in zip(symbols, askPrices, lastSaleTimes, timestamps):
+        obj = {'symbol': symbol, 'ask_price': askPrice, 'last_sale_time': lastSaleTime, 'timestamp': ts}
+        res.append(obj)
+
+        if symbol not in comps:
+            comps[symbol] = symbol_name_map[symbol]
+
+    payload = json.dumps({'data': res, 'companies': comps})
+    grequests.request("POST", flask_server + '/updateStocks', data=payload)
+
+
 def get_sql_context_instance(spark_context):
     if 'sqlContextSingletonInstance' not in globals():
         globals()['sqlContextSingletonInstance'] = SQLContext(spark_context)
     return globals()['sqlContextSingletonInstance']
 
 
-'''
-def aggregate_tags_count(new_values, total_sum):
-    return sum(new_values) + (total_sum or 0)
-
-
-
-def send_df_to_dashboard(df):
-    # extract the hashtags from dataframe and convert them into array
-    top_tags = [str(t.hashtag) for t in df.select("hashtag").collect()]
-    # extract the counts from dataframe and convert them into array
-    tags_count = [p.hashtag_count for p in df.select("hashtag_count").collect()]
-    # initialize and send the data through REST API
-    url = 'http://localhost:5001/updateData'
-    request_data = {'label': str(top_tags), 'data': str(tags_count)}
-    response = requests.post(url, data=request_data)
-
-
-def process_rdd(time, rdd):
-    print("----------- %s -----------" % str(time))
-    try:
-        # Get spark sql singleton context from the current context
-        sql_context = get_sql_context_instance(rdd.context)
-        # convert the RDD to Row RDD
-        row_rdd = rdd.map(lambda w: Row(hashtag=w[0], hashtag_count=w[1]))
-        # create a DF from the Row RDD
-        hashtags_df = sql_context.createDataFrame(row_rdd)
-        # Register the dataframe as table
-        hashtags_df.registerTempTable("hashtags")
-        # get the top 10 hashtags from the table using SQL and print them
-        hashtag_counts_df = sql_context.sql(
-            "select hashtag, hashtag_count from hashtags order by hashtag_count desc limit 10")
-        hashtag_counts_df.show()
-        # call this method to prepare top 10 hashtags DF and send them
-        send_df_to_dashboard(hashtag_counts_df)
-    except:
-        e = sys.exc_info()[0]
-        print("Error: %s" % e)
-
-'''
-
-
-def ts_json_map(obj):
+def json_map(obj):
     """
     converts string to json object
     :param obj:
@@ -149,8 +131,8 @@ def ts_stock_flat_map(tuple):
                     tuple[2],  # tweet (text)
                     tuple[3],  # tweet_id
                     tuple[4],  # sentimental score
-                    item[0],   # symbol
-                    item[1],   # company name
+                    item[0],  # symbol
+                    item[1],  # company name
                     item[2]))  # confidence
     return res
 
@@ -179,36 +161,36 @@ def ts_rdd_process(time, rdd):
     notify_server(tweets)
 
 
+def iex_map(obj):
+    return obj['symbol'], obj['askPrice'], obj['lastSaleTime'], datetime.now().microsecond
+
+
+def iex_rdd_process(time, rdd):
+    sql_context = get_sql_context_instance(rdd.context)
+
+    row_rdd = rdd.map(lambda w: Row(symbol=w[0],
+                                    askPrice=w[1],
+                                    lastSaleTime=w[2],
+                                    timestamp=w[3]))
+
+    stocks = sql_context.createDataFrame(row_rdd)
+    stocks.createOrReplaceGlobalTempView("stocks")
+
+    stocks_df = sql_context.sql("select symbol,askPrice,lastSaleTime,timestamp from stocks order by timestamp desc")
+
+
 # setup twitter stream pipeline
 twitter_service_stream \
-    .map(ts_json_map) \
+    .map(json_map) \
     .map(ts_map) \
     .flatMap(ts_stock_flat_map) \
     .foreachRDD(ts_rdd_process)
 
-'''
-# split each tweet into words
-words = twitter_service_stream.flatMap(lambda line: line.split(" "))
-# filter the words to get only hashtags, then map each hashtag to be a pair of (hashtag,1)
-# hashtags = words.filter(lambda w: '#' in w).map(lambda x: (x, 1))
-hashtags = words.map(lambda x: (x, 1))
-# adding the count of each hashtag to its last count
-tags_totals = hashtags.updateStateByKey(aggregate_tags_count)
-# do processing for each RDD generated in each interval
-tags_totals.foreachRDD(process_rdd)
-'''
-
-"""
-twitter_service_stream\
-    .flatMap(lambda line: line.split(" "))\
-    .filter(lambda w: '#' in w)\
-    .map(lambda x: (x, 1))\
-    .updateStateByKey(aggregate_tags_count)\
-    .foreachRDD(process_rdd)
-    
-json (map) -> user_id,follower,tweet (map) -> [tweet,sent_analysis] (flatMap) -> [tweet, st_analysis, stock, confidence] (forEachRdd) -> processData
-
-"""
+# setup iex stream pipeline
+iex_service_stream \
+    .map(json_map) \
+    .map(iex_map) \
+    .foreachRDD(iex_rdd_process)
 
 # start the streaming computation
 ssc.start()
