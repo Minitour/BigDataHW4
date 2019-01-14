@@ -34,11 +34,11 @@ for key in name_symbol_map:
         single_words_dict[word] = arr
 
 
-def get_symbol(tweet):
-    '''
+def get_symbols(tweet):
+    """
     :param tweet: The tweet from which we want to extract the stock symbol
     :return: None if not found or tuple (company_stock,accuracy)
-    '''
+    """
     # strip tweet from non english chars
     tweet = re.sub(r'[^a-zA-Z ]', r'', tweet).lower()
     tweet = re.sub(' +', ' ', tweet)
@@ -60,14 +60,19 @@ def get_symbol(tweet):
                 else:
                     score_map[company_name] = company_index_score
 
-    maxi = 0
-    maxc = None
-    for key, val in score_map.items():
-        if val > maxi:
-            maxc = key
-            maxi = val
+    # maxi = 0
+    # maxc = None
+    # for key, val in score_map.items():
+    #     if val > maxi:
+    #         maxc = key
+    #         maxi = val
+    #
+    # if maxc is not None:
+    #     return name_symbol_map[maxc], maxi
+    res = []
+    for k, val in score_map.items():
+        res.append((name_symbol_map[k], k, val))
 
-    if maxc is not None:
-        return name_symbol_map[maxc], maxi
+    res.sort(key=lambda tup: tup[2])
 
-    return None, None
+    return res
