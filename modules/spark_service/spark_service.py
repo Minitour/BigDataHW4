@@ -4,9 +4,10 @@ from pyspark.sql import Row, SQLContext
 import sys
 import requests
 import grequests
+import json
 
 from modules.nlp.predict import predict
-from modules.spark_service.symbol_lookup import get_symbol
+from modules.spark_service.symbol_lookup import get_symbols
 
 # create spark configuration
 conf = SparkConf()
@@ -26,15 +27,52 @@ ssc.checkpoint("checkpoint_1")
 twitter_service_stream = ssc.socketTextStream("localhost", 9009)
 iex_service_stream = ssc.socketTextStream("localhost", 3001)
 
+iex_sub_server = "http://localhost:3000/api/subscribe"
 
-def aggregate_tags_count(new_values, total_sum):
-    return sum(new_values) + (total_sum or 0)
+flask_server = "http://localhost:5001/"
+
+
+def notify_iex(symbols_df):
+    """
+    makes an api call to the iex server to subscribe for symbols.
+    :param symbols_df:
+    """
+    stock_symbols = [str(t.stock_symbol) for t in symbols_df.select("stock_symbol").collect()]
+
+    for symbol in stock_symbols:
+        payload = '{"symbol" : "%s"}' % symbol
+        grequests.request("POST", iex_sub_server, data=payload)
+
+
+def notify_server(tweets):
+    """
+    This function sends tweets data to the flask server.
+    :param tweets: tweets dataframe from which collect the data.
+    """
+    user_ids = [str(t.user_id) for t in tweets.select("user_id").collect()]
+    followers = [str(t.follower) for t in tweets.select("follower").collect()]
+    tweet_ids = [str(t.tweet_id) for t in tweets.select("tweet_id").collect()]
+    sentimental_scores = [str(t.sentimental_score) for t in tweets.select("sentimental_score").collect()]
+
+    res = []
+
+    for a, b, c, d in zip(user_ids, followers, tweet_ids, sentimental_scores):
+        res.append({'user_id': a, 'followers': b, 'tweet_id': c, 'score': d})
+
+    payload = json.dumps({'data': res})
+    grequests.request("POST", flask_server + '/updateTweets', data=payload)
 
 
 def get_sql_context_instance(spark_context):
-    if ('sqlContextSingletonInstance' not in globals()):
+    if 'sqlContextSingletonInstance' not in globals():
         globals()['sqlContextSingletonInstance'] = SQLContext(spark_context)
     return globals()['sqlContextSingletonInstance']
+
+
+'''
+def aggregate_tags_count(new_values, total_sum):
+    return sum(new_values) + (total_sum or 0)
+
 
 
 def send_df_to_dashboard(df):
@@ -69,22 +107,84 @@ def process_rdd(time, rdd):
         e = sys.exc_info()[0]
         print("Error: %s" % e)
 
+'''
 
-def process_tweet(tweet):
-    symbol, score = get_symbol(tweet['text'])
 
-    is_positive = predict(tweet['text'])
+def ts_json_map(obj):
+    """
+    converts string to json object
+    :param obj:
+    :return:
+    """
+    return json.loads(obj)
 
-    return {'tweet_id': tweet['id'],
-            'symbol_detected': symbol,
-            'is_positive': is_positive,
-            'follower_count': tweet['followers']
-            }
 
-def proc_tweet_rdd(time,rdd):
-    # subscribe to topic
-    return
+def ts_map(js_obj):
+    """
+    converts json object to tuple (user_id,followers,tweet,tweet_id)
+    :param js_obj:
+    :return:
+    """
+    return js_obj['user_id'], js_obj['followers'], js_obj['tweet'], js_obj['tweet_id']
 
+
+def ts_sent_score_map(tuple):
+    """
+    :param tuple: (user_id,followers,tweet,tweet_id)
+    :return: (user_id,followers,tweet,tweet_id,sentimental_score)
+    """
+    return tuple[0], tuple[1], tuple[2], tuple[3], predict(tuple[2])
+
+
+def ts_stock_flat_map(tuple):
+    """
+    :param tuple: (user_id,followers,tweet,sentimental_score)
+    :return: list[(user_id,followers,tweet,sentimental_score,stock_symbol,company_name,confidence)]
+    """
+    symbols = get_symbols(tuple[2])
+    res = []
+    for item in symbols:
+        res.append((tuple[0],  # user_id
+                    tuple[1],  # followers
+                    tuple[2],  # tweet (text)
+                    tuple[3],  # tweet_id
+                    tuple[4],  # sentimental score
+                    item[0],   # symbol
+                    item[1],   # company name
+                    item[2]))  # confidence
+    return res
+
+
+def ts_rdd_process(time, rdd):
+    sql_context = get_sql_context_instance(rdd.context)
+
+    row_rdd = rdd.map(lambda w: Row(user_id=w[0],
+                                    followers=w[1],
+                                    tweet=w[2],
+                                    tweet_id=w[3],
+                                    sentimental_score=w[4],
+                                    stock_symbol=w[5],
+                                    company_name=w[6],
+                                    confidence=w[7]))
+
+    entries = sql_context.createDataFrame(row_rdd)
+    entries.createOrReplaceGlobalTempView("entries")
+
+    # notify IEX about symbols
+    symbols_df = sql_context.sql("select stock_symbol from entries where confidence > 0.4")
+    notify_iex(symbols_df)
+
+    # notify flask server about tweets
+    tweets = sql_context.sql("select user_id,follower,tweet_id,sentimental_score from entries")
+    notify_server(tweets)
+
+
+# setup twitter stream pipeline
+twitter_service_stream \
+    .map(ts_json_map) \
+    .map(ts_map) \
+    .flatMap(ts_stock_flat_map) \
+    .foreachRDD(ts_rdd_process)
 
 '''
 # split each tweet into words
@@ -105,6 +205,8 @@ twitter_service_stream\
     .map(lambda x: (x, 1))\
     .updateStateByKey(aggregate_tags_count)\
     .foreachRDD(process_rdd)
+    
+json (map) -> user_id,follower,tweet (map) -> [tweet,sent_analysis] (flatMap) -> [tweet, st_analysis, stock, confidence] (forEachRdd) -> processData
 
 """
 
