@@ -46,28 +46,29 @@
                 for (var i = 0; i < numberOfColors; i++) {
                     colors.push(generateColor());
                 }
-
+                var indexForColor = 0;
                 // iterate over the stock prices and construct the object to append the chart dataset
                 for (var d in obj.stocks) {
                     var prices = [];
                     var isInGeneralStocks = "false";
 
                     // check if the stock is already in the general stock array -> if so -> pushing the new timestamped values into it
+
                     for (var stock in general_stocks) {
 
-                        if (general_stocks[stock]['symbol'] == obj.stocks[d]['symbol']) {
+                        if (general_stocks[stock] == obj.stocks[d]) {
                             general_stocks[stock]['stockPrices'] = pushIntoArray(general_stocks[stock]['stockPrices'], obj.stocks[d]['stockPrices'])
                             isInGeneralStocks = "true";
-                            console.log("pushed new items into stock" + general_stocks[stock]['symbol']);
+                            console.log("pushed new items into stock" + general_stocks[stock]);
                         }
                     }
 
                     // iterate over the prices and get the values if the time stamp is grater than now | only if we havent found the stock in the general array
                     if (isInGeneralStocks == "false") {
                         for (var price in obj.stocks[d]['stockPrices']) {
-                            // if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
+                            if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
                                 prices.push(obj.stocks[d]['stockPrices'][price]['value']);
-                            // }
+                            }
                         }
                     }
 
@@ -77,8 +78,8 @@
 
                         var s = {
                             data: prices,
-                            label: obj.stocks[d]['symbol'],
-                            borderColor: colors[d],
+                            label: d,
+                            borderColor: colors[indexForColor],
                             fill: false
                         };
                         // console.log(s);
@@ -86,7 +87,9 @@
                         // pushing the new data into the general stock array
                         general_stocks.push(s);
                         console.log("pushed new stock");
+                        indexForColor += 1;
                     }
+                    
 
                 }
 
