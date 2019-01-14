@@ -13,7 +13,8 @@
         var currentTimestamp = new Date().getTime();
 
         // init general stock array to keep the data and not refresh every time
-        var general_stocks = [];
+        var general_stocks = {};
+        var generalForDataset = [];
 
         /*
             This function will get from the posted request the json with the stock data
@@ -34,74 +35,81 @@
 
             $.ajax(settings).done(function (obj) {
                 console.log(obj);
-            // });
-            // var o = $.getJSON("mock_data.json", function (obj) {
-                // console.log(obj);
-                var stocks = [];
+                
+                // init vars for colors
                 var colors = [];
-                var numberOfColors = obj.stocks.length;
+                var numberOfColors = Object.keys(obj.stocks).length;
 
-                //var startFrom = getFirstIndex(obj.stocks);
-
+                // generate colors by count of stocks
                 for (var i = 0; i < numberOfColors; i++) {
                     colors.push(generateColor());
                 }
+
                 var indexForColor = 0;
+                var stocks = obj.stocks;
+
                 // iterate over the stock prices and construct the object to append the chart dataset
-                for (var d in obj.stocks) {
+                for (var d in stocks) {
+
                     var prices = [];
-                    var isInGeneralStocks = "false";
+                    var isInStocks = false;
 
-                    // check if the stock is already in the general stock array -> if so -> pushing the new timestamped values into it
 
-                    for (var stock in general_stocks) {
+                    for (var i in generalForDataset) {
+                        if (generalForDataset[i].label == d) {
+                            for (var price in stocks[d]['stockPrices']) {
+                                if (stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
+                                    console.log("gggggggggg");
+                                    generalForDataset[i].data.push({"y": Math.floor(stocks[d]['stockPrices'][price]['value']), "x": stocks[d]['stockPrices'][price]['timestamp']});
 
-                        if (general_stocks[stock] == obj.stocks[d]) {
-                            general_stocks[stock]['stockPrices'] = pushIntoArray(general_stocks[stock]['stockPrices'], obj.stocks[d]['stockPrices'])
-                            isInGeneralStocks = "true";
-                            console.log("pushed new items into stock" + general_stocks[stock]);
+                                }
+                            }
+                            isInStocks = true;
+                            chart.data.datasets = generalForDataset;
                         }
                     }
 
-                    // iterate over the prices and get the values if the time stamp is grater than now | only if we havent found the stock in the general array
-                    if (isInGeneralStocks == "false") {
-                        for (var price in obj.stocks[d]['stockPrices']) {
-                            if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
-                                prices.push(obj.stocks[d]['stockPrices'][price]['value']);
+                    if (isInStocks == false) {
+                        
+                        var tempPrices = [];
+                        var iterPrices = stocks[d]['stockPrices'];
+                        
+                        for (var price in iterPrices) {
+                            if (iterPrices[price]['timestamp'] > currentTimestamp) {
+                                prices.push({ "value": Math.floor(iterPrices[price]['value']), "timestamp": iterPrices[price]['timestamp'] });
+                                tempPrices.push({y: Math.floor(stocks[d]['stockPrices'][price]['value']), x: iterPrices[price]['timestamp']});
                             }
                         }
+
+                        if (tempPrices.length > 0) {
+
+                            var s = {
+                                data: tempPrices,
+                                label: d,
+                                borderColor: colors[indexForColor],
+                                fill: false
+                            };
+
+                            // pushing the new data into the general stock array
+                            generalForDataset.push(s);
+                            chart.data.datasets = generalForDataset;
+                            console.log("pushed new stock");
+
+                        }
                     }
 
-
-                    //construct the object to append if we have some new prices -> means new stock
-                    if (prices.length > 0) {
-
-                        var s = {
-                            data: prices,
-                            label: d,
-                            borderColor: colors[indexForColor],
-                            fill: false
-                        };
-                        // console.log(s);
-
-                        // pushing the new data into the general stock array
-                        general_stocks.push(s);
-                        console.log("pushed new stock");
-                        indexForColor += 1;
-                    }
+                    indexForColor = indexForColor + 1;
                     
-
                 }
 
-                var labels = getTimesForLabels();
-
-                // updating the chart
-                chart.data.datasets = general_stocks;
+                //var labels = getTimesForLabels();
+                var labels = [1,2];
                 chart.data.labels = labels;
                 chart.update();
 
                 currentTimestamp = new Date().getTime();
                 console.log(currentTimestamp);
+
 
             });
         }
@@ -151,12 +159,19 @@
 
         // setting new chart with min initialization -> updating by posts
         var chart = new Chart(document.getElementById("line-chart"), {
-            type: 'line',
+            type: 'scatter',
             data: { datasets: null, labels: null },
             options: {
                 title: {
                     display: true,
                     text: 'Popular Stocks On Tweeter'
+                },
+                scales: {
+                    xAxes: [{
+                        ticks: {
+                            display: false //this will remove only the label
+                        }
+                    }]
                 }
             }
         });
