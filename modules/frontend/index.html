@@ -9,6 +9,7 @@
     <script>
 
         // setting the current time stamp to the init of this script
+        // var currentTimestamp = 1547400798;
         var currentTimestamp = new Date().getTime();
 
         // init general stock array to keep the data and not refresh every time
@@ -19,7 +20,22 @@
             after getting the data the function will update the chart according to the new values
         */
         function getStocks() {
-            var o = $.getJSON("mock_data.json", function (obj) {
+            var settings = {
+                "async": true,
+                "crossDomain": false,
+                "url": "http://localhost:5423/getData",
+                "method": "POST",
+                "headers": {
+                    "content-type": "application/json",
+                    "cache-control": "no-cache",
+                    "Access-Control-Allow-Origin": "https://localhost:5423"
+                }
+            }
+
+            $.ajax(settings).done(function (obj) {
+                console.log(obj);
+            // });
+            // var o = $.getJSON("mock_data.json", function (obj) {
                 // console.log(obj);
                 var stocks = [];
                 var colors = [];
@@ -35,30 +51,30 @@
                 for (var d in obj.stocks) {
                     var prices = [];
                     var isInGeneralStocks = "false";
-                    
+
                     // check if the stock is already in the general stock array -> if so -> pushing the new timestamped values into it
                     for (var stock in general_stocks) {
-                        
+
                         if (general_stocks[stock]['symbol'] == obj.stocks[d]['symbol']) {
                             general_stocks[stock]['stockPrices'] = pushIntoArray(general_stocks[stock]['stockPrices'], obj.stocks[d]['stockPrices'])
                             isInGeneralStocks = "true";
                             console.log("pushed new items into stock" + general_stocks[stock]['symbol']);
                         }
                     }
-                    
+
                     // iterate over the prices and get the values if the time stamp is grater than now | only if we havent found the stock in the general array
                     if (isInGeneralStocks == "false") {
                         for (var price in obj.stocks[d]['stockPrices']) {
-                            if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
+                            // if (obj.stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
                                 prices.push(obj.stocks[d]['stockPrices'][price]['value']);
-                            }
+                            // }
                         }
                     }
 
 
                     //construct the object to append if we have some new prices -> means new stock
                     if (prices.length > 0) {
-                        
+
                         var s = {
                             data: prices,
                             label: obj.stocks[d]['symbol'],

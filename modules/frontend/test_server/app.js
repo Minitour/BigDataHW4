@@ -1,5 +1,6 @@
 const express = require('express')
 const spawn = require('threads').spawn;
+const path = require('path')
 
 const app = express()
 app.use(express.json())
@@ -43,6 +44,11 @@ app.post('/getData',(req,res)=>{
 
 app.listen(port);
 console.log('Server now listening on port '  + port);
+
+app.get("/", (req, res)=> {
+  res.sendFile(path.join(__dirname + "/../index.html"))
+})
+
 
 function generateTweet() {
     var template = {
