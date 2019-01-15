@@ -8,7 +8,7 @@ response = requests.request("GET", url, headers=headers)
 data = json.loads(response.text)
 
 name_symbol_map = {}
-symbo_name_map = {}
+symbol_name_map = {}
 single_words_dict = {}
 
 for company in data:
@@ -19,7 +19,7 @@ for company in data:
     if len(name) != 0:
         name_symbol_map[name] = symbol
 
-    symbo_name_map[symbol] = name
+    symbol_name_map[symbol] = name
 
 # for each company name
 for key in name_symbol_map:

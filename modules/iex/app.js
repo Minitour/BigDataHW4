@@ -55,7 +55,9 @@ thread
 
     // if stock symbo is in queue then consume it
     if (existsInQueue(response.symbol)){
-        consume(response);
+    
+        // convert to string and send with \n because that's how spark consumes it.
+        consume(JSON.stringify(response) + '\n');
     }
 })
 
