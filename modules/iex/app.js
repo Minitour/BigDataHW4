@@ -86,7 +86,8 @@ thread
  * @param {String} symbol 
  */
 function existsInQueue(symbol) {
-    return symbol.toLowerCase() in queue;
+    return true
+    //return symbol.toLowerCase() in queue;
 }
 
 /**
@@ -111,6 +112,7 @@ function updateQueueIfNeededFor(symbol) {
 function consume(data) {
     //io.sockets.emit('message', data);
     for(var key in clients) {
+        console.log(data)
         clients[key].write(data + '\n')
     }
 }
@@ -128,7 +130,7 @@ app.post('/api/subscribe',(req,res)=>{
 
     // add symbol to queue with current time + window size aka expiration date.
     queue[symbol] = new Date().getTime() + WINDOW_SIZE;
-    
+    console.log('Starting monitoring on symbol: ' + symbol)
     // response success
     res.send({ code : 200})
 })

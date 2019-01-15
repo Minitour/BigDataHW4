@@ -16,7 +16,7 @@ def index():
     return render_template('index.html')
 
 
-@app.route("getData", methods=['POST'])
+@app.route("/getData", methods=['POST'])
 def get_data():
     """
     method to fetch the data (used by the frontend)
@@ -26,7 +26,7 @@ def get_data():
     return jsonify({'tweets': tweets, 'stocks': stocks})
 
 
-@app.route("updateStocks", methods=['POST'])
+@app.route("/updateStocks", methods=['POST'])
 def update_stocks():
     """
     method to update the data (used by the spark service)
@@ -37,7 +37,7 @@ def update_stocks():
     return "success", 200
 
 
-@app.route("updateTweets", methods=['POST'])
+@app.route("/updateTweets", methods=['POST'])
 def update_tweet():
     """
     method to update the data (used by the spark service)

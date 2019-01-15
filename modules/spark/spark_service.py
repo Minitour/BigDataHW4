@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-import grequests
+import requests
 from pyspark import SparkConf, SparkContext
 from pyspark.sql import Row, SQLContext
 from pyspark.streaming import StreamingContext
@@ -9,13 +9,18 @@ from pyspark.streaming import StreamingContext
 from modules.nlp.predict import predict
 from modules.spark.symbol_lookup import get_symbols, symbol_name_map
 
+import os
+
+os.environ["SPARK_HOME"] = "/usr/local/Cellar/apache-spark/1.5.1/"
+os.environ["PYSPARK_PYTHON"]="/usr/bin/python"
+
 # create spark configuration
 conf = SparkConf()
 conf.setAppName("TweeStocks")
 
 # create spark instance with the above configuration
 sc = SparkContext(conf=conf)
-sc.setLogLevel("ERROR")
+sc.setLogLevel("ALL")
 
 # creat the Streaming Context from the above spark context with window size 2 seconds
 ssc = StreamingContext(sc, 2)
@@ -41,7 +46,7 @@ def notify_iex(symbols_df):
 
     for symbol in stock_symbols:
         payload = '{"symbol" : "%s"}' % symbol
-        grequests.request("POST", iex_sub_server, data=payload)
+        requests.request("POST", iex_sub_server, data=payload)
 
 
 def notify_server(tweets):
@@ -60,7 +65,7 @@ def notify_server(tweets):
         res.append({'user_id': a, 'followers': b, 'tweet_id': c, 'score': d})
 
     payload = json.dumps({'data': res})
-    grequests.request("POST", flask_server + '/updateTweets', data=payload)
+    requests.request("POST", flask_server + '/updateTweets', data=payload)
 
 
 def notify_server_stocks(stocks_df):
@@ -83,7 +88,7 @@ def notify_server_stocks(stocks_df):
             comps[symbol] = symbol_name_map[symbol]
 
     payload = json.dumps({'data': res, 'companies': comps})
-    grequests.request("POST", flask_server + '/updateStocks', data=payload)
+    requests.request("POST", flask_server + '/updateStocks', data=payload)
 
 
 def get_sql_context_instance(spark_context):
@@ -93,6 +98,7 @@ def get_sql_context_instance(spark_context):
 
 
 def json_map(obj):
+    print('json_map:' + str(obj))
     """
     converts string to json object
     :param obj:
@@ -138,6 +144,10 @@ def ts_stock_flat_map(tuple):
 
 
 def ts_rdd_process(time, rdd):
+
+    if rdd.isEmpty():
+        return
+
     sql_context = get_sql_context_instance(rdd.context)
 
     row_rdd = rdd.map(lambda w: Row(user_id=w[0],
@@ -162,10 +172,14 @@ def ts_rdd_process(time, rdd):
 
 
 def iex_map(obj):
+    print('iex_map:' + str(obj))
     return obj['symbol'], obj['askPrice'], obj['lastSaleTime'], datetime.now().microsecond
 
 
 def iex_rdd_process(time, rdd):
+    if rdd.isEmpty():
+        return
+
     sql_context = get_sql_context_instance(rdd.context)
 
     row_rdd = rdd.map(lambda w: Row(symbol=w[0],
