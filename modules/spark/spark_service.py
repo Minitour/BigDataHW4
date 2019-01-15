@@ -32,7 +32,6 @@ twitter_service_stream = ssc.socketTextStream("localhost", 9009)
 iex_service_stream = ssc.socketTextStream("localhost", 3001)
 
 iex_sub_server = "http://localhost:3000/api/subscribe"
-
 flask_server = "http://localhost:5001/"
 
 
@@ -45,7 +44,11 @@ def notify_iex(symbols_df):
 
     for symbol in stock_symbols:
         payload = '{"symbol" : "%s"}' % symbol
-        requests.request("POST", iex_sub_server, data=payload)
+        headers = {
+            'content-type': "application/json",
+            'cache-control': "no-cache"
+        }
+        requests.request("POST", iex_sub_server, data=payload, headers=headers)
 
 
 def notify_server(tweets):
@@ -63,8 +66,15 @@ def notify_server(tweets):
     for a, b, c, d in zip(user_ids, followers, tweet_ids, sentimental_scores):
         res.append({'user_id': a, 'followers': b, 'tweet_id': c, 'score': d})
 
+    headers = {
+        'content-type': "application/json",
+        'cache-control': "no-cache"
+    }
     payload = json.dumps({'data': res})
-    requests.request("POST", flask_server + '/updateTweets', data=payload)
+    try:
+        requests.request("POST", flask_server + '/updateTweets', data=payload, headers=headers)
+    except:
+        print("unreachable server")
 
 
 def notify_server_stocks(stocks_df):
@@ -87,7 +97,10 @@ def notify_server_stocks(stocks_df):
             comps[symbol] = symbol_name_map[symbol]
 
     payload = json.dumps({'data': res, 'companies': comps})
-    requests.request("POST", flask_server + '/updateStocks', data=payload)
+    try:
+        requests.request("POST", flask_server + '/updateStocks', data=payload)
+    except:
+        print("unreachable server")
 
 
 def get_sql_context_instance(spark_context):
@@ -97,7 +110,6 @@ def get_sql_context_instance(spark_context):
 
 
 def json_map(obj):
-    print('json_map:' + str(obj))
     """
     converts string to json object
     :param obj:
@@ -106,7 +118,6 @@ def json_map(obj):
     try:
         return json.loads(obj)
     except:
-        print('failt to load: ' + obj)
         return {}
 
 
@@ -166,6 +177,7 @@ def ts_rdd_process(time, rdd):
 
     # notify IEX about symbols
     symbols_df = sql_context.sql("select stock_symbol from entries where confidence > 0.4")
+    symbols_df = symbols_df.dropDuplicates()
     notify_iex(symbols_df)
 
     # notify flask server about tweets
@@ -175,13 +187,12 @@ def ts_rdd_process(time, rdd):
 
 def iex_map(obj):
     if 'symbol' not in obj or 'askPrice' not in obj or 'lastSaleTime' not in obj:
-        return
+        return {}
 
     return obj['symbol'], obj['askPrice'], obj['lastSaleTime'], datetime.now().microsecond
 
 
 def iex_rdd_process(time, rdd):
-
     if rdd.isEmpty():
         return
 
@@ -196,21 +207,24 @@ def iex_rdd_process(time, rdd):
     stocks.registerTempTable("stocks")
 
     stocks_df = sql_context.sql("select symbol,askPrice,lastSaleTime,timestamp from stocks order by timestamp desc")
+    stocks_df = stocks_df.dropDuplicates()
+    notify_server_stocks(stocks_df)
 
+
+# setup iex stream pipeline
+iex_service_stream \
+    .filter(lambda x: len(x.strip()) != 0) \
+    .map(json_map) \
+    .map(iex_map) \
+    .foreachRDD(iex_rdd_process)
 
 # setup twitter stream pipeline
 twitter_service_stream \
     .map(json_map) \
     .map(ts_map) \
-    .map(ts_sent_score_map)\
+    .map(ts_sent_score_map) \
     .flatMap(ts_stock_flat_map) \
     .foreachRDD(ts_rdd_process)
-
-# setup iex stream pipeline
-iex_service_stream \
-    .map(json_map) \
-    .map(iex_map) \
-    .foreachRDD(iex_rdd_process)
 
 # start the streaming computation
 ssc.start()

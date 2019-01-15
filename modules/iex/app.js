@@ -17,6 +17,7 @@ var clients = {}
     var name = socket.remoteAddress + ":" + socket.remotePort
     clients[name] = socket
 
+    console.log(name + ' connected');
     socket.on('end', function () {
         console.log("connection closed for " + name)
         delete clients[name]
@@ -110,10 +111,10 @@ function updateQueueIfNeededFor(symbol) {
  * @param {Object} data 
  */
 function consume(data) {
-    //io.sockets.emit('message', data);
+
     for(var key in clients) {
-        console.log(data)
-        clients[key].write(data + '\n')
+
+        clients[key].write(data)
     }
 }
 
