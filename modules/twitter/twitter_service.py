@@ -1,11 +1,11 @@
+import json
 import socket
-import sys
+
+import pandas as pd
 import requests
 import requests_oauthlib
-import json
-import pandas as pd
 
-#lsof -n -i | grep -e LISTEN -e ESTABLISHED
+# lsof -n -i | grep -e LISTEN -e ESTABLISHED
 
 # Replace the values below with yours
 ACCESS_TOKEN = '1053037342867554304-LguUeIEnjsniVsy0EKvqJzI43jWjUz'
@@ -27,12 +27,12 @@ def load_users():
 
 def get_tweets():
     url = 'https://stream.twitter.com/1.1/statuses/filter.json'
-    #user_ids = load_users()
+    # user_ids = load_users()
 
     query_data = [
         ('language', 'en'),
-        ('track','stock')
-      #  ('follow', user_ids)
+        ('track', 'stock')
+        #  ('follow', user_ids)
     ]
     query_url = url + '?' + '&'.join([str(t[0]) + '=' + str(t[1]) for t in query_data])
     response = requests.get(query_url, auth=my_auth, stream=True)
@@ -45,17 +45,20 @@ def send_tweets_to_spark(http_resp, tcp_connection):
         json_str = line.decode("utf-8")
         full_tweet = json.loads(json_str)
 
-        tweet_text = full_tweet['text'].encode("utf-8")
-        user_id = full_tweet['user']['id_str'].encode("utf-8")
+        tweet_text = full_tweet['text']
+        user_id = full_tweet['user']['id_str']
         tweet_id = full_tweet['id_str']
-        followers = full_tweet['user']['followers_count']
+        followers = int(full_tweet['user']['followers_count'])
+
         obj = {'user_id': user_id,
                'tweet': tweet_text,
                'tweet_id': tweet_id,
                'followers': followers}
 
-        print(json.dumps(obj))
-        tcp_connection.send("hello".encode())
+        #print(obj)
+        val = json.dumps(obj)
+        print(val)
+        tcp_connection.send(val.encode())
 
 
 TCP_IP = "localhost"
