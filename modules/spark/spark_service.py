@@ -11,9 +11,6 @@ from modules.spark.symbol_lookup import get_symbols, symbol_name_map
 
 import os
 
-os.environ["SPARK_HOME"] = "/usr/local/Cellar/apache-spark/1.5.1/"
-os.environ["PYSPARK_PYTHON"]="/usr/bin/python"
-
 # create spark configuration
 conf = SparkConf()
 conf.setAppName("TweeStocks")
