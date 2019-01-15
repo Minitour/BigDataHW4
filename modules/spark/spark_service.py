@@ -11,13 +11,15 @@ from modules.spark.symbol_lookup import get_symbols, symbol_name_map
 
 import os
 
+os.environ['PYSPARK_PYTHON'] = '/usr/local/bin/python3'
+
 # create spark configuration
 conf = SparkConf()
 conf.setAppName("TweeStocks")
 
 # create spark instance with the above configuration
 sc = SparkContext(conf=conf)
-sc.setLogLevel("ALL")
+sc.setLogLevel("ERROR")
 
 # creat the Streaming Context from the above spark context with window size 2 seconds
 ssc = StreamingContext(sc, 2)
@@ -25,7 +27,7 @@ ssc = StreamingContext(sc, 2)
 # setting a checkpoint to allow RDD recovery
 ssc.checkpoint("checkpoint_1")
 
-# read data from port 9009
+# read data from servers
 twitter_service_stream = ssc.socketTextStream("localhost", 9009)
 iex_service_stream = ssc.socketTextStream("localhost", 3001)
 
@@ -52,7 +54,7 @@ def notify_server(tweets):
     :param tweets: tweets dataframe from which collect the data.
     """
     user_ids = [str(t.user_id) for t in tweets.select("user_id").collect()]
-    followers = [str(t.follower) for t in tweets.select("follower").collect()]
+    followers = [str(t.followers) for t in tweets.select("followers").collect()]
     tweet_ids = [str(t.tweet_id) for t in tweets.select("tweet_id").collect()]
     sentimental_scores = [str(t.sentimental_score) for t in tweets.select("sentimental_score").collect()]
 
@@ -101,7 +103,11 @@ def json_map(obj):
     :param obj:
     :return:
     """
-    return json.loads(obj)
+    try:
+        return json.loads(obj)
+    except:
+        print('failt to load: ' + obj)
+        return {}
 
 
 def ts_map(js_obj):
@@ -141,7 +147,6 @@ def ts_stock_flat_map(tuple):
 
 
 def ts_rdd_process(time, rdd):
-
     if rdd.isEmpty():
         return
 
@@ -157,23 +162,26 @@ def ts_rdd_process(time, rdd):
                                     confidence=w[7]))
 
     entries = sql_context.createDataFrame(row_rdd)
-    entries.createOrReplaceGlobalTempView("entries")
+    entries.registerTempTable("entries")
 
     # notify IEX about symbols
     symbols_df = sql_context.sql("select stock_symbol from entries where confidence > 0.4")
     notify_iex(symbols_df)
 
     # notify flask server about tweets
-    tweets = sql_context.sql("select user_id,follower,tweet_id,sentimental_score from entries")
+    tweets = sql_context.sql("select user_id,followers,tweet_id,sentimental_score from entries")
     notify_server(tweets)
 
 
 def iex_map(obj):
-    print('iex_map:' + str(obj))
+    if 'symbol' not in obj or 'askPrice' not in obj or 'lastSaleTime' not in obj:
+        return
+
     return obj['symbol'], obj['askPrice'], obj['lastSaleTime'], datetime.now().microsecond
 
 
 def iex_rdd_process(time, rdd):
+
     if rdd.isEmpty():
         return
 
@@ -185,7 +193,7 @@ def iex_rdd_process(time, rdd):
                                     timestamp=w[3]))
 
     stocks = sql_context.createDataFrame(row_rdd)
-    stocks.createOrReplaceGlobalTempView("stocks")
+    stocks.registerTempTable("stocks")
 
     stocks_df = sql_context.sql("select symbol,askPrice,lastSaleTime,timestamp from stocks order by timestamp desc")
 
@@ -194,6 +202,7 @@ def iex_rdd_process(time, rdd):
 twitter_service_stream \
     .map(json_map) \
     .map(ts_map) \
+    .map(ts_sent_score_map)\
     .flatMap(ts_stock_flat_map) \
     .foreachRDD(ts_rdd_process)
 

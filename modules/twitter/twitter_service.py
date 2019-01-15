@@ -55,9 +55,12 @@ def send_tweets_to_spark(http_resp, tcp_connection):
                'tweet_id': tweet_id,
                'followers': followers}
 
-        val = json.dumps(obj)
+        val = json.dumps(obj) + '\n'
         print(val)
-        tcp_connection.send(val.encode())
+        try:
+            tcp_connection.send(val.encode())
+        except:
+            return
 
 
 TCP_IP = "localhost"
@@ -75,3 +78,4 @@ conn, addr = s.accept()
 print("Connected... Starting getting tweets.")
 resp = get_tweets()
 send_tweets_to_spark(resp, conn)
+
