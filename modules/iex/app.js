@@ -86,8 +86,7 @@ thread
  * @param {String} symbol 
  */
 function existsInQueue(symbol) {
-    return true
-    //return symbol.toLowerCase() in queue;
+    return symbol.toLowerCase() in queue;
 }
 
 /**

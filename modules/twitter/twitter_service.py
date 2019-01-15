@@ -55,7 +55,6 @@ def send_tweets_to_spark(http_resp, tcp_connection):
                'tweet_id': tweet_id,
                'followers': followers}
 
-        #print(obj)
         val = json.dumps(obj)
         print(val)
         tcp_connection.send(val.encode())
