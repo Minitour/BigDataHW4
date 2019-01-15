@@ -6,3 +6,7 @@ iex_example/node_modules/
 modules/iex_service/node_modules/
 
 modules/frontend/test_server/node_modules/
+
+modules/iex/node_modules/
+
+modules/twitter/client/

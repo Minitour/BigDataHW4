@@ -1,14 +1,27 @@
-const SocketClient = require('socket.io-client')
+//var socket = require('socket.io-client')('ws://localhost:9009');
+//socket.on('connect', function(){
+//    console.log("connect")
+//});
+//socket.on('event', function(data){
+//    console.log(data)
+//});
+//socket.on('disconnect', function(){
+//    console.log("disconnect")
+//});
 
-const url = 'http://localhost:9009'
-const socket = SocketClient(url)
+var net = require('net');
 
-console.log("creating socket")
+var client = new net.Socket();
 
-socket.on('message', (data)=> {
-    console.log(data)
-})
+client.connect(3001, '127.0.0.1', function() {
+	console.log('Connected');
+});
 
- socket.on('connect', () => {
-     console.log("Connection created")
- })
+client.on('data', function(data) {
+	console.log('Received: ' + data);
+});
+
+client.on('close', function() {
+	console.log('Connection closed');
+});
+

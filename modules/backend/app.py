@@ -8,7 +8,7 @@ print(template_dir)
 app = Flask(__name__, template_folder=template_dir)
 
 tweets = []
-stocks = []
+stocks = {}
 
 
 @app.route("/")
@@ -20,10 +20,10 @@ def index():
 def get_data():
     """
     method to fetch the data (used by the frontend)
-    :return: the data (traindata + stocks)
+    :return: the data (tweets + stocks)
     """
     global tweets, stocks
-    return jsonify({'traindata': tweets, 'stocks': stocks})
+    return jsonify({'tweets': tweets, 'stocks': stocks})
 
 
 @app.route("updateStocks", methods=['POST'])
