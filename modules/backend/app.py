@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask import render_template
 
 template_dir = os.path.abspath('./../frontend')
@@ -33,7 +33,46 @@ def update_stocks():
     :return:
     """
     global stocks
-    # TODO: update stocks
+    body = request.get_json(silent=True)
+
+    '''
+    {
+        "data" : [
+            {
+                "symbol" : "string",
+                "ask_price" : "string",
+                "last_sale_time" : "string",
+                "timestamp" : 0
+            }
+        ],
+        "companies" : {
+            "symbol_x" : "string"
+        }
+    }
+    '''
+
+    data = body['data']
+    companies = body['companies']
+
+    for stock_data in data:
+        symbol = stock_data['symbol']
+        # if stock does not exist
+        if symbol in stocks:
+            obj = {
+                'companyName': companies[symbol],
+                'stockPrices': [
+                    {
+                        'value': int(stock_data['ask_price']),
+                        'timestamp': stock_data['timestamp']
+                    }
+                ]
+            }
+            stocks[symbol] = obj
+        else:
+            # add to existing stock
+            stocks[symbol].stockPrices.append({'value': int(stock_data['ask_price']),
+                                               'timestamp': stock_data['timestamp']})
+
     return "success", 200
 
 
@@ -44,7 +83,27 @@ def update_tweet():
     :return:
     """
     global tweets
-    # TODO: update traindata
+    '''
+    {
+        "data" : [
+            {
+                "user_id" : "str",
+                "followers" : "str",
+                "tweet_id" : "str,
+                "score" : "str"
+            }
+        ]
+    }
+    '''
+
+    body = request.get_json(silent=True)
+    data = body['data']
+
+    tweets.clear()
+
+    for item in data:
+        tweets.append(item)
+
     return "success", 200
 
 
