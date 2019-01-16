@@ -57,7 +57,7 @@ def update_stocks():
     for stock_data in data:
         symbol = stock_data['symbol']
         # if stock does not exist
-        if symbol in stocks:
+        if symbol not in stocks:
             obj = {
                 'companyName': companies[symbol],
                 'stockPrices': [
@@ -70,10 +70,10 @@ def update_stocks():
             stocks[symbol] = obj
         else:
             # add to existing stock
-            stocks[symbol].stockPrices.append({'value': int(stock_data['ask_price']),
+            stocks[symbol]['stockPrices'].append({'value': int(stock_data['ask_price']),
                                                'timestamp': stock_data['timestamp']})
 
-    return "success", 200
+    return "{}", 200
 
 
 @app.route("/updateTweets", methods=['POST'])
