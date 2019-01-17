@@ -16,13 +16,11 @@
         <div style="text-align: center; padding-right:5px;">
             <h3>Tweets</h3>
             <div id="tweet" style="text-align:center;"></div>
-
         </div>
     </div>
 
 
     <script>
-
         // setting the current time stamp to the init of this script
         // var currentTimestamp = 1547400798;
         var currentTimestamp = new Date().getTime();
@@ -30,11 +28,14 @@
         // init general stock array to keep the data and not refresh every time
         var generalForDataset = [];
 
+        // keeps a reference of the last known data item for each dataset
+        var stock_index = {}
+
         /*
             This function will get from the posted request the json with the stock data
             after getting the data the function will update the chart according to the new values
         */
-       var index_for_loop = 0;
+        var index_for_loop = 0;
         function getStocks() {
             var settings = {
                 "async": true,
@@ -49,88 +50,90 @@
             }
 
             $.ajax(settings).done(function (obj) {
-                //console.log(obj);
 
-                // init vars for colors
-                var colors = [];
-                var numberOfColors = Object.keys(obj.stocks).length;
-
-                // generate colors by count of stocks
-                for (var i = 0; i < numberOfColors; i++) {
-                    colors.push(generateColor());
+                /**
+                {
+                    "ge" : {
+                        "companyName" : string,
+                        "stockPrices" : [
+                            {
+                                "value": number,
+                                "timestamp": number
+                            }
+                        ]
+                    }
                 }
-
-                var indexForColor = 0;
-
+                **/
                 var stocks = obj.stocks;
                 var tweets = obj.tweets;
-                //console.log(tweets);
 
-                // iterate over the stock prices and construct the object to append the chart dataset
-                for (var d in stocks) {
+                for(var key in stocks) {
+                    // if key exists:
+                    if (stock_index[key] != undefined){
+                        var lastKnownTimestamp = stock_index[key]
+                        var maxTimestamp = lastKnownTimestamp
 
-                    var prices = [];
-                    var isInStocks = false;
-
-
-                    for (var i in generalForDataset) {
-                        if (generalForDataset[i].label == d) {
-                            for (var price in stocks[d]['stockPrices']) {
-                                if (stocks[d]['stockPrices'][price]['timestamp'] > currentTimestamp) {
-                                    generalForDataset[i].data.push({ "y": Math.floor(stocks[d]['stockPrices'][price]['value']), "x": stocks[d]['stockPrices'][price]['timestamp'] });
-
-                                }
-                            }
-                            isInStocks = true;
-                            chart.data.datasets = generalForDataset;
+                        // find the dataset index
+                        var i = 0
+                        for(var dataset of generalForDataset){
+                            if (generalForDataset[i].id == key){ break }
+                            ++i
                         }
-                    }
 
-                    if (isInStocks == false) {
+                        // for each value in the data set:
+                        for(var v of stocks[key].stockPrices) {
+                            // if the data has a timestamp that is greater than the last known timestamp
+                            if(v.timestamp > lastKnownTimestamp){
+                                // append it
+                                let item = { 
+                                    "y": parseInt(v.value),
+                                    "x": v.timestamp 
+                                 }
+                                generalForDataset[i].data.push(item);
+                                maxTimestamp = Math.max(v.timestamp,maxTimestamp)
+                            }
+                        }
 
+                        // update stock index
+                        stock_index[key] = maxTimestamp;  
+                            
+                    } else {
+                        // create new data set
+                        var maxTimestamp = 0;
                         var tempPrices = [];
-                        var iterPrices = stocks[d]['stockPrices'];
 
-                        for (var price in iterPrices) {
-                            if (iterPrices[price]['timestamp'] > currentTimestamp) {
-                                prices.push({ "value": Math.floor(iterPrices[price]['value']), "timestamp": iterPrices[price]['timestamp'] });
-                                tempPrices.push({ y: Math.floor(stocks[d]['stockPrices'][price]['value']), x: iterPrices[price]['timestamp'] });
-                            }
-                        }
-
-                        if (tempPrices.length > 0) {
-
-                            var s = {
-                                data: tempPrices,
-                                label: d,
-                                borderColor: colors[indexForColor],
-                                fill: false
+                        // transform values
+                        for(var v of stocks[key].stockPrices) {
+                            
+                            let item = { 
+                                "y": v.value,
+                                "x": v.timestamp 
                             };
 
-                            // pushing the new data into the general stock array
-                            generalForDataset.push(s);
-                            chart.data.datasets = generalForDataset;
-                            //console.log("pushed new stock");
-
+                            tempPrices.push(item);
+                            maxTimestamp = Math.max(v.timestamp,maxTimestamp)
                         }
+
+                        var set = {
+                                id : key,
+                                data: tempPrices,
+                                label: stocks[key].companyName,
+                                borderColor: generateColor(),
+                                fill: false
+                        };
+                        stock_index[key] = maxTimestamp;  
+                        // append all the data to it
+                        generalForDataset.push(set);
+                        
                     }
-
-                    indexForColor = indexForColor + 1;
-
+                    
                 }
-
-                //var labels = getTimesForLabels();
-                var labels = [1, 2];
-                chart.data.labels = labels;
                 chart.update();
+                /*
 
-                currentTimestamp = new Date().getTime();
-                //console.log(currentTimestamp);
+                while( index_for_loop < loopSize) {
 
-                // setting up the tweets
-                var tweet = document.getElementById("tweet");
 
-                while( index_for_loop < 10) {
                     var id = tweets[index_for_loop]['tweet_id'];
                     //var id = "515490786800963584";
 
@@ -148,6 +151,7 @@
                     
                     index_for_loop += 1;
                 }
+                */
 
             });
         }
@@ -167,7 +171,7 @@
         // setting new chart with min initialization -> updating by posts
         var chart = new Chart(document.getElementById("line-chart"), {
             type: 'scatter',
-            data: { datasets: null, labels: null },
+            data: { datasets: generalForDataset, labels: null },
             options: {
                 title: {
                     display: true,
@@ -185,47 +189,6 @@
 
         // setting the interval for 1 sec to update the new stocks and prices from the posted request
         setInterval(function () { getStocks() }, 1000);
-
-    </script>
-    <script>
-
-        // window.onload = (function () {
-        //     var settings = {
-        //         "async": true,
-        //         "crossDomain": false,
-        //         "url": "http://localhost:5001/getData",
-        //         "method": "POST",
-        //         "headers": {
-        //             "content-type": "application/json",
-        //             "cache-control": "no-cache",
-        //             "Access-Control-Allow-Origin": "https://localhost:5423"
-        //         }
-        //     }
-
-
-
-        //     $.ajax(settings).done(function (obj) {
-        //         // console.log(obj);
-        //         var tweets = obj.tweets;
-
-        //         for (var t in tweets) {
-
-        //             var id = tweets[t]['tweet_id'];
-
-        //             twttr.widgets.createTweet(
-        //                 id, tweet,
-        //                 {
-        //                     conversation: 'none',    // or all
-        //                     cards: 'hidden',  // or visible 
-        //                     linkColor: '#cc0000', // default is blue
-        //                     theme: 'light'    // or dark
-        //                 })
-        //                 .then(function (el) {
-        //                     el.contentDocument.querySelector(".footer").style.display = "none";
-        //                 });
-        //         }
-        //     });
-        // });
 
     </script>
 

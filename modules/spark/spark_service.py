@@ -28,8 +28,8 @@ ssc = StreamingContext(sc, 2)
 ssc.checkpoint("checkpoint_1")
 
 # read data from servers
-twitter_service_stream = ssc.socketTextStream("localhost", 9009)
 iex_service_stream = ssc.socketTextStream("localhost", 3001)
+twitter_service_stream = ssc.socketTextStream("localhost", 9009)
 
 iex_sub_server = "http://localhost:3000/api/subscribe"
 flask_server = "http://localhost:5001/"
@@ -72,13 +72,14 @@ def notify_server(tweets):
     }
     payload = json.dumps({'data': res})
     try:
-        requests.request("POST", flask_server + '/updateTweets', data=payload, headers=headers)
+        requests.request("POST", flask_server + 'updateTweets', data=payload, headers=headers)
     except:
         print("unreachable server")
 
 
 def notify_server_stocks(stocks_df):
-    # select symbol,askPrice,lastSaleTime,timestamp from stocks
+    # select symbol,askPrice,lastSaleTime,ti
+    # mestamp from stocks
 
     symbols = [str(t.symbol) for t in stocks_df.select("symbol").collect()]
     askPrices = [str(t.askPrice) for t in stocks_df.select("askPrice").collect()]
@@ -96,9 +97,13 @@ def notify_server_stocks(stocks_df):
         if symbol not in comps:
             comps[symbol] = symbol_name_map[symbol]
 
+    headers = {
+        'content-type': "application/json",
+        'cache-control': "no-cache"
+    }
     payload = json.dumps({'data': res, 'companies': comps})
     try:
-        requests.request("POST", flask_server + '/updateStocks', data=payload)
+        requests.request("POST", flask_server + 'updateStocks', data=payload,headers=headers)
     except:
         print("unreachable server")
 
@@ -186,10 +191,10 @@ def ts_rdd_process(time, rdd):
 
 
 def iex_map(obj):
-    if 'symbol' not in obj or 'askPrice' not in obj or 'lastSaleTime' not in obj:
+    if 'symbol' not in obj or 'lastSalePrice' not in obj or 'lastSaleTime' not in obj:
         return {}
 
-    return obj['symbol'], obj['askPrice'], obj['lastSaleTime'], datetime.now().microsecond
+    return obj['symbol'], obj['lastSalePrice'], obj['lastSaleTime'], datetime.now().microsecond
 
 
 def iex_rdd_process(time, rdd):
@@ -213,7 +218,6 @@ def iex_rdd_process(time, rdd):
 
 # setup iex stream pipeline
 iex_service_stream \
-    .filter(lambda x: len(x.strip()) != 0) \
     .map(json_map) \
     .map(iex_map) \
     .foreachRDD(iex_rdd_process)

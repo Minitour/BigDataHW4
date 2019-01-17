@@ -8,28 +8,6 @@ app.use(express.json())
 const port = 3000
 const WINDOW_SIZE = 3600000 // 1 hour in millisconds
 
-// io.listen(port + 1);
-
-var clients = {}
-
- var socketServer = net.createServer(function(socket) {
-
-    var name = socket.remoteAddress + ":" + socket.remotePort
-    clients[name] = socket
-
-    console.log(name + ' connected');
-    socket.on('end', function () {
-        console.log("connection closed for " + name)
-        delete clients[name]
-    });
-
-	//socket.pipe(socket);
-});
-
-socketServer.listen(port + 1, '127.0.0.1');
-
-console.log('Stream Available on port '  + (port + 1))
-
 
 /**
  * This is a js object which contains the current subscribed symbols and their expiration date.
@@ -39,56 +17,85 @@ var queue = {}
 /**
  * Primary background task
  */
-const thread = spawn(function(input, done) {
 
-    const url = 'https://ws-api.iextrading.com/1.0/tops'
+function factoryThread() {
+    var thread = spawn(function(input, done) {
 
-    const SocketClient = require('socket.io-client')
-
-    const socket = SocketClient(url)
+        const url = 'https://ws-api.iextrading.com/1.0/tops'
     
-    socket.on('message', (data)=> {
-        let objc = JSON.parse(data)
-        done(objc); 
-     })
+        const SocketClient = require('socket.io-client')
     
-     socket.on('connect', () => {
-         console.log("Sucessfully Connected to IEX")
-         socket.emit('subscribe','firehose')
-     })
+        const socket = SocketClient(url)
+    
+        socket.on('message', (data)=> {
+            let objc = JSON.parse(data)
+            done(objc);
+         })
+    
+         socket.on('connect', () => {
+             console.log("Sucessfully Connected to IEX")
+             socket.emit('subscribe','firehose')
+         })
+    })
+    .on('message', (response)=> {
+        // apply transformations if needed
+        //console.log(response.symbol)
+    
+        if (response == undefined) {
+            return;
+        }
+    
+        if (!('symbol' in response)) {
+            return;
+        }
+    
+        updateQueueIfNeededFor(response.symbol);
+    
+        // if stock symbo is in queue then consume it
+        if (existsInQueue(response.symbol)){
+    
+            // convert to string and send with \n because that's how spark consumes it.
+            consume(JSON.stringify(response) + '\n');
+        }else {
+            console.log(response.symbol + ' not in queue!')
+        }
+    })
+
+    return thread
+}
+
+/**
+ * Background thread
+ */
+var thread = factoryThread()
+
+var clients = {}
+
+var socketServer = net.createServer(function(socket) {
+
+    var name = socket.remoteAddress + ":" + socket.remotePort
+    clients[name] = socket
+
+    console.log(name + ' connected');
+    socket.on('end', function () {
+        console.log("connection closed for " + name)
+        delete clients[name]
+    });
+    thread.send({})
+
+	//socket.pipe(socket);
 });
 
-thread
-.send({})
-.on('message', (response)=> {
-    // apply transformations if needed
-    //console.log(response.symbol)
+socketServer.listen(port + 1, '127.0.0.1');
 
-    if (response == undefined) {
-        return;
-    }
-
-    if (!('symbol' in response)) {
-        return;
-    }
-
-    updateQueueIfNeededFor(response.symbol);
-
-    // if stock symbo is in queue then consume it
-    if (existsInQueue(response.symbol)){
-    
-        // convert to string and send with \n because that's how spark consumes it.
-        consume(JSON.stringify(response) + '\n');
-    }
-})
+console.log('Stream Available on port '  + (port + 1))
 
 /**
  * Check if symbol is in our queue (sub box)
  * @param {String} symbol 
  */
 function existsInQueue(symbol) {
-    return true
-    //return symbol.toLowerCase() in queue;
+    return symbol.toLowerCase() in queue;
 }
 
 /**
@@ -111,12 +118,12 @@ function updateQueueIfNeededFor(symbol) {
  * @param {Object} data 
  */
 function consume(data) {
-
-    for(var key in clients) {
-
-        clients[key].write(data)
+    for(var name in clients) {
+        clients[name].write(data)
     }
 }
+
+var counter = 0
 
 app.post('/api/subscribe',(req,res)=>{
     // subscribe
@@ -132,8 +139,21 @@ app.post('/api/subscribe',(req,res)=>{
     // add symbol to queue with current time + window size aka expiration date.
     queue[symbol] = new Date().getTime() + WINDOW_SIZE;
     console.log('Starting monitoring on symbol: ' + symbol)
+
+    if (counter % 10 == 0) {
+        // terminate thread
+        thread.kill()
+
+        // create new thread
+        thread = factoryThread()
+
+        // start new thread
+        thread.send({})
+    }
+
     // response success
     res.send({ code : 200})
+    ++counter
 })
 
 app.listen(port);

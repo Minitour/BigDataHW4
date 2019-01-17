@@ -62,7 +62,7 @@ def update_stocks():
                 'companyName': companies[symbol],
                 'stockPrices': [
                     {
-                        'value': int(stock_data['ask_price']),
+                        'value': stock_data['ask_price'],
                         'timestamp': stock_data['timestamp']
                     }
                 ]
@@ -70,8 +70,8 @@ def update_stocks():
             stocks[symbol] = obj
         else:
             # add to existing stock
-            stocks[symbol]['stockPrices'].append({'value': int(stock_data['ask_price']),
-                                               'timestamp': stock_data['timestamp']})
+            stocks[symbol]['stockPrices'].append({'value': stock_data['ask_price'],
+                                                  'timestamp': stock_data['timestamp']})
 
     return "{}", 200
 
