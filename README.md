@@ -46,6 +46,7 @@ Our system is composed of 4 layers:
 3) Run the IEX service `node modules/iex/app.js`
 4) Run the twitter service: `modules/twitter/twitter_service.py`
 5) Run the spark service: `modules/spark/spark_service.py` (run after all services have promoted that they are listening for incoming connections)
+6) Visit http://localhost:5001/
 
 It is important that the python files are executed from PyCharm.
 
