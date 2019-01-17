@@ -131,6 +131,14 @@
                 }
                 chart.update();
                 
+                /*
+                {
+                    "user_id" : "str",
+                    "followers" : "str",
+                    "tweet_id" : "str,
+                    "score" : "str"
+                }
+                */
                 for (var t of tweets) {
                     if (tweet_id_set[t.tweet_id] == undefined) {
                         // new tweet
@@ -140,7 +148,7 @@
                             conversation: 'none',    // or all
                             cards: 'hidden',  // or visible 
                             linkColor: '#cc0000', // default is blue
-                            theme: 'light'    // or dark
+                            theme: (t.score == "False" ? 'dark' : 'light')    // or dark
                         }).then(function (el) {
                             $('#' + el.id).remove()
                             $('#tweets_div').prepend(el)

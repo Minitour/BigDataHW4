@@ -48,7 +48,10 @@ def notify_iex(symbols_df):
             'content-type': "application/json",
             'cache-control': "no-cache"
         }
-        requests.request("POST", iex_sub_server, data=payload, headers=headers)
+        try:
+            requests.request("POST", iex_sub_server, data=payload, headers=headers)
+        except:
+            print("unreachable server")
 
 
 def notify_server(tweets):
