@@ -1,4 +1,4 @@
-<html>
+<!DOCTYPE html>
 
 <body>
     <!-- imports for chart -->
@@ -13,9 +13,9 @@
         <div style="float:right; padding-left:5px;">
             <canvas id="line-chart" width="1000" height="600"></canvas>
         </div>
-        <div style="text-align: center; padding-right:5px;">
-            <h3>Tweets</h3>
-            <div id="tweet" style="text-align:center;"></div>
+        <div style="text-align: center;">
+            <h3 style="font-family: Helvetica;">Tweets</h3>
+            <div id="tweets_div" style="text-align:center;padding-right:5px;overflow-y:scroll; overflow-x:hidden; height:600px;"></div>
         </div>
     </div>
 
@@ -30,6 +30,7 @@
 
         // keeps a reference of the last known data item for each dataset
         var stock_index = {}
+        var tweet_id_set = {}
 
         /*
             This function will get from the posted request the json with the stock data
@@ -129,29 +130,25 @@
                     
                 }
                 chart.update();
-                /*
-
-                while( index_for_loop < loopSize) {
-
-
-                    var id = tweets[index_for_loop]['tweet_id'];
-                    //var id = "515490786800963584";
-
-                    twttr.widgets.createTweet(
-                        id, tweet,
-                        {
+                
+                for (var t of tweets) {
+                    if (tweet_id_set[t.tweet_id] == undefined) {
+                        // new tweet
+                        tweet_id_set[t.tweet_id] = true
+                        twttr.widgets.createTweet(t.tweet_id,
+                        document.getElementById('tweets_div'), {
                             conversation: 'none',    // or all
                             cards: 'hidden',  // or visible 
                             linkColor: '#cc0000', // default is blue
                             theme: 'light'    // or dark
-                        })
-                        .then(function (el) {
+                        }).then(function (el) {
+                            $('#' + el.id).remove()
+                            $('#tweets_div').prepend(el)
                             el.contentDocument.querySelector(".footer").style.display = "none";
                         });
-                    
-                    index_for_loop += 1;
+                    }
                 }
-                */
+                
 
             });
         }

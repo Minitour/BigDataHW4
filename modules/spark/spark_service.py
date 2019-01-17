@@ -220,6 +220,7 @@ def iex_rdd_process(time, rdd):
 iex_service_stream \
     .map(json_map) \
     .map(iex_map) \
+    .filter(lambda stock_data: stock_data[1] > 0)\
     .foreachRDD(iex_rdd_process)
 
 # setup twitter stream pipeline

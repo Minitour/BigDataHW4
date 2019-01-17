@@ -10,6 +10,8 @@ app = Flask(__name__, template_folder=template_dir)
 tweets = []
 stocks = {}
 
+tweet_index = set()
+
 
 @app.route("/")
 def index():
@@ -83,6 +85,8 @@ def update_tweet():
     :return:
     """
     global tweets
+    global tweet_index
+
     '''
     {
         "data" : [
@@ -99,10 +103,10 @@ def update_tweet():
     body = request.get_json(silent=True)
     data = body['data']
 
-    tweets.clear()
-
     for item in data:
-        tweets.append(item)
+        if item['tweet_id'] not in tweet_index:
+            tweets.append(item)
+            tweet_index.add(item['tweet_id'])
 
     return "success", 200
 
