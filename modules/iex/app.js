@@ -7,6 +7,7 @@ const app = express()
 app.use(express.json())
 const port = 3000
 const WINDOW_SIZE = 3600000 // 1 hour in millisconds
+const MAX_QUEUE_SIZE = 30
 
 
 /**
@@ -56,8 +57,6 @@ function factoryThread() {
     
             // convert to string and send with \n because that's how spark consumes it.
             consume(JSON.stringify(response) + '\n');
-        }else {
-            console.log(response.symbol + ' not in queue!')
         }
     })
 
@@ -135,6 +134,13 @@ app.post('/api/subscribe',(req,res)=>{
     }
 
     symbol = symbol.toLowerCase();
+    if (queue[symbol] == undefined) {
+        if (Object.keys(queue).length == MAX_QUEUE_SIZE) {
+            res.send({code : 400 })
+            return
+        }
+    }
+
 
     // add symbol to queue with current time + window size aka expiration date.
     queue[symbol] = new Date().getTime() + WINDOW_SIZE;

@@ -32,7 +32,7 @@ def get_users_usernames():
 def get_users_ids(usernames):
     #print(len(usernames))   ---> we have here 499 users
     ids = []
-    number_of_loops = (len(usernames) / 100) + 1  # got 4 after division + 1 for the 99 users left
+    number_of_loops = int(len(usernames) / 100) + 1  # got 4 after division + 1 for the 99 users left
 
     start_at = 0    # will iterate: 0-99, 100-199, 200-299, 300-399, 400-499
 
@@ -51,7 +51,7 @@ def get_users_ids(usernames):
             # appending only the ids of the users
 
             for d in data:
-                ids.append(d['id'])
+                ids.append(str(d['id']))
 
         except requests.HTTPError as error:
             # try again
