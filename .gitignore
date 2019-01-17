@@ -10,3 +10,5 @@ modules/frontend/test_server/node_modules/
 modules/iex/node_modules/
 
 modules/twitter/client/
+
+\.idea/
