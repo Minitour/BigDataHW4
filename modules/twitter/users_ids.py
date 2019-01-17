@@ -41,7 +41,7 @@ def get_users_ids(usernames):
         try:
             # construct the url
             url = 'https://api.twitter.com/1.1/users/lookup.json?screen_name=' + get_users_as_string(usernames[start_at: start_at + 99])
-            print(start_at, start_at + 99)
+            print ("getting users between (" + str(start_at) + ", " + str(start_at + 99) + ")")
             # getting the response
             response = requests.get(url, auth=my_auth, stream=True)
 
@@ -49,7 +49,7 @@ def get_users_ids(usernames):
             data = json.loads(response.text)
 
             # appending only the ids of the users
-            print(len(data))
+
             for d in data:
                 ids.append(d['id'])
 
