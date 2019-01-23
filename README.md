@@ -33,11 +33,16 @@ Our system is composed of 4 layers:
 `requests`
 `requests_oauthlib`
 `sklearn`
+`pandas`
 
 - Node JS: 
 `node.js v8.11`
 `npm v5.6.0`
 
+## Pre-Setup
+1) Install `nodejs` and `npm`
+2) go to `modules/iex/` and run `npm install`
+3) Install python libs
 
 ## Setup
 
